@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mcp-ecdsa": {
+      "command": "mcp-ecdsa",
+      "env": {}
+    }
+  }
+}

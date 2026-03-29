@@ -1,0 +1,92 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-ecdsa"
+version = "0.1.0"
+description = "MCP server for ECDSA cryptography"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Dario Clavijo", email = "clavijodario@gmail.com"}
+]
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp[cli]>=1.1.0"]
+ecdsa = ["ecdsa>=0.18.0"]
+dev = [
+    "ruff",
+    "mypy",
+    "hatch",
+    "pip-api",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-asyncio",
+    "hypothesis",
+]
+lint = [
+    "ruff",
+    "mypy",
+]
+all = ["mcp-ecdsa[dev,test,lint,mcp,ecdsa]"]
+
+[project.scripts]
+mcp-ecdsa = "mcp_ecdsa.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/daedalus/mcp-ecdsa"
+Repository = "https://github.com/daedalus/mcp-ecdsa"
+Issues = "https://github.com/daedalus/mcp-ecdsa/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_ecdsa"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/mcp_ecdsa"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "ANN", "TCH", "N", "C4", "ARG"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --cov=src --cov-fail-under=69"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+exclude = ["tests/*", "*/__init__.py"]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
