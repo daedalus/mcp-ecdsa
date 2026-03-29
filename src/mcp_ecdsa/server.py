@@ -595,6 +595,8 @@ async def import_private_key(arguments: dict) -> list[TextContent]:
 
     vk = sk.get_verifying_key()
 
+    actual_curve = sk.curve.name
+
     return [
         TextContent(
             type="text",
@@ -602,7 +604,7 @@ async def import_private_key(arguments: dict) -> list[TextContent]:
                 {
                     "private_key": base64.b64encode(sk.to_string()).decode("utf-8"),
                     "public_key": base64.b64encode(vk.to_string()).decode("utf-8"),
-                    "curve": arguments.get("curve", "NIST256p"),
+                    "curve": actual_curve,
                 }
             ),
         )
@@ -626,13 +628,15 @@ async def import_public_key(arguments: dict) -> list[TextContent]:
     else:
         return [TextContent(type="text", text=f"Unknown format: {format_type}")]
 
+    actual_curve = vk.curve.name
+
     return [
         TextContent(
             type="text",
             text=json.dumps(
                 {
                     "public_key": base64.b64encode(vk.to_string()).decode("utf-8"),
-                    "curve": arguments.get("curve", "NIST256p"),
+                    "curve": actual_curve,
                 }
             ),
         )
@@ -694,19 +698,24 @@ async def get_key_info(arguments: dict) -> list[TextContent]:
     private_key_b64 = arguments.get("private_key")
     public_key_b64 = arguments.get("public_key")
 
-    result = {"curve": arguments.get("curve", "NIST256p")}
-
     if private_key_b64:
         private_key_bytes = base64.b64decode(private_key_b64)
         sk = SigningKey.from_string(private_key_bytes, curve=curve, hashfunc=hashfunc)
         vk = sk.get_verifying_key()
-        result["private_key"] = base64.b64encode(sk.to_string()).decode("utf-8")
-        result["public_key"] = base64.b64encode(vk.to_string()).decode("utf-8")
-
-    if public_key_b64:
+        result = {
+            "curve": sk.curve.name,
+            "private_key": base64.b64encode(sk.to_string()).decode("utf-8"),
+            "public_key": base64.b64encode(vk.to_string()).decode("utf-8"),
+        }
+    elif public_key_b64:
         public_key_bytes = base64.b64decode(public_key_b64)
         vk = VerifyingKey.from_string(public_key_bytes, curve=curve, hashfunc=hashfunc)
-        result["public_key"] = base64.b64encode(vk.to_string()).decode("utf-8")
+        result = {
+            "curve": vk.curve.name,
+            "public_key": base64.b64encode(vk.to_string()).decode("utf-8"),
+        }
+    else:
+        result = {"curve": arguments.get("curve", "NIST256p")}
 
     return [TextContent(type="text", text=json.dumps(result))]
 
