@@ -97,6 +97,26 @@ class TestSignData:
         sig2 = json.loads(result2[0].text)["signature"]
         assert sig1 == sig2
 
+    async def test_sign_non_deterministic(self, keys_nist256p: dict) -> None:
+        """Test non-deterministic signing produces different results."""
+        result1 = await sign_data(
+            {
+                "private_key": keys_nist256p["private_key"],
+                "data": "Test",
+                "deterministic": False,
+            }
+        )
+        result2 = await sign_data(
+            {
+                "private_key": keys_nist256p["private_key"],
+                "data": "Test",
+                "deterministic": False,
+            }
+        )
+        sig1 = json.loads(result1[0].text)["signature"]
+        sig2 = json.loads(result2[0].text)["signature"]
+        assert sig1 != sig2
+
 
 class TestVerifySignature:
     """Tests for verify_signature function."""
@@ -264,6 +284,16 @@ class TestImportExport:
 class TestGetKeyInfo:
     """Tests for get_key_info function."""
 
+    async def test_get_key_info_no_key(self) -> None:
+        """Test getting key info with no key provided."""
+        result = await get_key_info(
+            {
+                "curve": "NIST256p",
+            }
+        )
+        data = json.loads(result[0].text)
+        assert data["curve"] == "NIST256p"
+
     async def test_get_key_info_from_private(self, keys_nist256p: dict) -> None:
         """Test getting key info from private key."""
         result = await get_key_info(
@@ -351,6 +381,31 @@ class TestEd25519:
 class TestExportFormats:
     """Tests for various export formats."""
 
+    async def test_export_private_key_invalid_format(self, keys_nist256p: dict) -> None:
+        """Test exporting private key with invalid format."""
+        result = await export_private_key(
+            {
+                "private_key": keys_nist256p["private_key"],
+                "curve": "NIST256p",
+                "format": "invalid",
+            }
+        )
+        assert "Unknown format" in result[0].text
+
+    async def test_export_private_key_ssh(self) -> None:
+        """Test exporting private key to SSH format."""
+        key_result = await generate_key({"curve": "Ed25519"})
+        key = json.loads(key_result[0].text)
+        result = await export_private_key(
+            {
+                "private_key": key["private_key"],
+                "curve": "Ed25519",
+                "format": "ssh",
+            }
+        )
+        data = json.loads(result[0].text)
+        assert len(data["key"]) > 0
+
     async def test_export_private_key_der(self, keys_nist256p: dict) -> None:
         """Test exporting private key to DER format."""
         result = await export_private_key(
@@ -412,6 +467,96 @@ class TestExportFormats:
         data = json.loads(result[0].text)
         assert "-----BEGIN PUBLIC KEY-----" in data["key"]
 
+    async def test_export_public_key_invalid_format(self, keys_nist256p: dict) -> None:
+        """Test exporting public key with invalid format."""
+        result = await export_public_key(
+            {
+                "public_key": keys_nist256p["public_key"],
+                "curve": "NIST256p",
+                "format": "invalid",
+            }
+        )
+        assert "Unknown format" in result[0].text
+
+    async def test_export_public_key_ssh(self) -> None:
+        """Test exporting public key to SSH format."""
+        key_result = await generate_key({"curve": "Ed25519"})
+        key = json.loads(key_result[0].text)
+        result = await export_public_key(
+            {
+                "public_key": key["public_key"],
+                "curve": "Ed25519",
+                "format": "ssh",
+            }
+        )
+        data = json.loads(result[0].text)
+        assert len(data["key"]) > 0
+
+
+class TestImportPrivateKeyFormats:
+    """Tests for import private key format edge cases."""
+
+    async def test_import_private_key_der(self) -> None:
+        """Test importing private key from DER."""
+        import base64
+
+        key_result = await generate_key({"curve": "NIST256p"})
+        key = json.loads(key_result[0].text)
+
+        export_result = await export_private_key(
+            {
+                "private_key": key["private_key"],
+                "curve": "NIST256p",
+                "format": "der",
+            }
+        )
+        der_key = json.loads(export_result[0].text)["key"]
+        der_bytes = base64.b64decode(der_key)
+
+        result = await import_private_key(
+            {
+                "key_data": der_bytes,
+                "format": "der",
+                "curve": "NIST256p",
+            }
+        )
+        data = json.loads(result[0].text)
+        assert data["private_key"] == key["private_key"]
+
+    async def test_import_private_key_invalid_format(self) -> None:
+        """Test importing private key with invalid format."""
+        result = await import_private_key(
+            {
+                "key_data": "invalid",
+                "format": "invalid_format",
+                "curve": "NIST256p",
+            }
+        )
+        assert "Unknown format" in result[0].text
+
+    async def test_import_private_key_pem(self) -> None:
+        """Test importing private key from PEM."""
+        key_result = await generate_key({"curve": "NIST256p"})
+        key = json.loads(key_result[0].text)
+
+        export_result = await export_private_key(
+            {
+                "private_key": key["private_key"],
+                "curve": "NIST256p",
+                "format": "pem",
+            }
+        )
+        pem_key = json.loads(export_result[0].text)["key"]
+
+        result = await import_private_key(
+            {
+                "key_data": pem_key,
+                "format": "pem",
+            }
+        )
+        data = json.loads(result[0].text)
+        assert data["private_key"] == key["private_key"]
+
 
 class TestImportFormats:
     """Tests for various import formats."""
@@ -468,6 +613,44 @@ class TestImportFormats:
         )
         data = json.loads(result[0].text)
         assert data["public_key"] == key["public_key"]
+
+    async def test_import_public_key_der(self) -> None:
+        """Test importing public key from DER."""
+        import base64
+
+        key_result = await generate_key({"curve": "NIST256p"})
+        key = json.loads(key_result[0].text)
+
+        export_result = await export_public_key(
+            {
+                "public_key": key["public_key"],
+                "curve": "NIST256p",
+                "format": "der",
+            }
+        )
+        der_key = json.loads(export_result[0].text)["key"]
+        der_bytes = base64.b64decode(der_key)
+
+        result = await import_public_key(
+            {
+                "key_data": der_bytes,
+                "format": "der",
+                "curve": "NIST256p",
+            }
+        )
+        data = json.loads(result[0].text)
+        assert data["public_key"] == key["public_key"]
+
+    async def test_import_public_key_invalid_format(self) -> None:
+        """Test importing public key with invalid format."""
+        result = await import_public_key(
+            {
+                "key_data": "invalid",
+                "format": "invalid_format",
+                "curve": "NIST256p",
+            }
+        )
+        assert "Unknown format" in result[0].text
 
 
 class TestVerifyDigest:
@@ -572,6 +755,12 @@ class TestCurves:
         data = json.loads(verify_result[0].text)
         assert data["valid"] is True
 
+    async def test_generate_ed448(self) -> None:
+        """Test Ed448 key generation."""
+        result = await generate_key({"curve": "Ed448"})
+        data = json.loads(result[0].text)
+        assert data["curve"] == "Ed448"
+
 
 class TestHashFunctions:
     """Tests for various hash functions."""
@@ -614,6 +803,40 @@ class TestHashFunctions:
             }
         )
         assert "signature" in json.loads(result[0].text)
+
+
+class TestListTools:
+    """Tests for list_tools function."""
+
+    async def test_list_tools(self) -> None:
+        """Test listing all available tools."""
+        from mcp_ecdsa.server import list_tools
+
+        tools = await list_tools()
+        assert len(tools) == 11
+        tool_names = [t.name for t in tools]
+        assert "generate_key" in tool_names
+        assert "sign_data" in tool_names
+        assert "sign_digest" in tool_names
+        assert "verify_signature" in tool_names
+        assert "verify_digest_signature" in tool_names
+        assert "import_private_key" in tool_names
+        assert "import_public_key" in tool_names
+        assert "export_private_key" in tool_names
+        assert "export_public_key" in tool_names
+        assert "get_key_info" in tool_names
+        assert "recover_public_key" in tool_names
+
+
+class TestCallTool:
+    """Tests for call_tool function."""
+
+    async def test_call_tool_unknown(self) -> None:
+        """Test calling unknown tool."""
+        from mcp_ecdsa.server import call_tool
+
+        result = await call_tool("unknown_tool", {})
+        assert "Unknown tool" in result[0].text
 
 
 class TestSignatureEncodings:
