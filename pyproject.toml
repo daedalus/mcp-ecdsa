@@ -12,11 +12,12 @@ license = {text = "MIT"}
 authors = [
     {name = "Dario Clavijo", email = "clavijodario@gmail.com"}
 ]
-dependencies = []
+dependencies = [
+    "mcp[cli]>=1.1.0",
+    "ecdsa>=0.18.0",
+]
 
 [project.optional-dependencies]
-mcp = ["mcp[cli]>=1.1.0"]
-ecdsa = ["ecdsa>=0.18.0"]
 dev = [
     "ruff",
     "mypy",
@@ -34,7 +35,7 @@ lint = [
     "ruff",
     "mypy",
 ]
-all = ["mcp-ecdsa[dev,test,lint,mcp,ecdsa]"]
+all = ["mcp-ecdsa[dev,test,lint]"]
 
 [project.scripts]
 mcp-ecdsa = "mcp_ecdsa.__main__:main"
