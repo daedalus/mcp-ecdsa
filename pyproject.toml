@@ -67,6 +67,7 @@ convention = "google"
 
 [tool.mypy]
 python_version = "3.11"
+strict = true
 warn_return_any = true
 warn_unused_ignores = true
 ignore_missing_imports = true
@@ -74,7 +75,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short --cov=src --cov-fail-under=69"
+addopts = "-v --tb=short --cov=src --cov-fail-under=80"
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.coverage.run]

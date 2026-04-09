@@ -1,7 +1,7 @@
-import asyncio
 import base64
 import hashlib
 import json
+from collections.abc import Callable
 from typing import Any
 
 from ecdsa import (
@@ -16,13 +16,14 @@ from ecdsa import (
     SigningKey,
     VerifyingKey,
 )
+from ecdsa.curves import Curve
 from ecdsa.util import sigdecode_der, sigdecode_string, sigencode_der, sigencode_string
 from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
 app = FastMCP("mcp-ecdsa")
 
-CURVES = {
+CURVES: dict[str, Curve] = {
     "NIST192p": NIST192p,
     "NIST224p": NIST224p,
     "NIST256p": NIST256p,
@@ -33,7 +34,7 @@ CURVES = {
     "Ed448": Ed448,
 }
 
-HASH_FUNCTIONS = {
+HASH_FUNCTIONS: dict[str, Callable[[], Any]] = {
     "sha1": hashlib.sha1,
     "sha224": hashlib.sha224,
     "sha256": hashlib.sha256,
@@ -45,19 +46,15 @@ HASH_FUNCTIONS = {
 }
 
 
-def get_curve(curve_name: str) -> Any:
+def get_curve(curve_name: str) -> Curve:
     return CURVES.get(curve_name, NIST256p)
 
 
-def get_hash_func(hash_name: str) -> Any:
+def get_hash_func(hash_name: str) -> Callable[[], Any]:
     return HASH_FUNCTIONS.get(hash_name, hashlib.sha256)
 
 
-@app.tool()
-def generate_key(
-    curve: str = "NIST256p",
-    hashfunc: str = "sha256",
-) -> str:
+def generate_key(curve: str = "NIST256p", hashfunc: str = "sha256") -> str:
     """Generate a new ECDSA key pair"""
     curve_obj = get_curve(curve)
     hashfunc_obj = get_hash_func(hashfunc)
@@ -75,6 +72,14 @@ def generate_key(
 
 
 @app.tool()
+def _generate_key(
+    curve: str = "NIST256p",
+    hashfunc: str = "sha256",
+) -> str:
+    """Generate a new ECDSA key pair"""
+    return generate_key(curve, hashfunc)
+
+
 def sign_data(
     private_key: str,
     data: str,
@@ -110,6 +115,18 @@ def sign_data(
 
 
 @app.tool()
+def _sign_data(
+    private_key: str,
+    data: str,
+    curve: str = "NIST256p",
+    hashfunc: str = "sha256",
+    sigencode: str = "string",
+    deterministic: bool = True,
+) -> str:
+    """Sign data using ECDSA"""
+    return sign_data(private_key, data, curve, hashfunc, sigencode, deterministic)
+
+
 def sign_digest(
     private_key: str,
     digest: str,
@@ -138,6 +155,17 @@ def sign_digest(
 
 
 @app.tool()
+def _sign_digest(
+    private_key: str,
+    digest: str,
+    curve: str = "NIST256p",
+    sigencode: str = "string",
+    deterministic: bool = True,
+) -> str:
+    """Sign a digest directly using ECDSA (no hashing)"""
+    return sign_digest(private_key, digest, curve, sigencode, deterministic)
+
+
 def verify_signature(
     public_key: str,
     signature: str,
@@ -173,6 +201,18 @@ def verify_signature(
 
 
 @app.tool()
+def _verify_signature(
+    public_key: str,
+    signature: str,
+    data: str,
+    curve: str = "NIST256p",
+    hashfunc: str = "sha256",
+    sigdecode: str = "string",
+) -> str:
+    """Verify an ECDSA signature"""
+    return verify_signature(public_key, signature, data, curve, hashfunc, sigdecode)
+
+
 def verify_digest_signature(
     public_key: str,
     signature: str,
@@ -200,6 +240,17 @@ def verify_digest_signature(
 
 
 @app.tool()
+def _verify_digest_signature(
+    public_key: str,
+    signature: str,
+    digest: str,
+    curve: str = "NIST256p",
+    sigdecode: str = "string",
+) -> str:
+    """Verify a signature over a digest"""
+    return verify_digest_signature(public_key, signature, digest, curve, sigdecode)
+
+
 def import_private_key(
     key_data: str,
     format: str,
@@ -234,6 +285,16 @@ def import_private_key(
 
 
 @app.tool()
+def _import_private_key(
+    key_data: str,
+    format: str,
+    curve: str = "NIST256p",
+    hashfunc: str = "sha256",
+) -> str:
+    """Import a private key from various formats"""
+    return import_private_key(key_data, format, curve, hashfunc)
+
+
 def import_public_key(
     key_data: str,
     format: str,
@@ -266,6 +327,16 @@ def import_public_key(
 
 
 @app.tool()
+def _import_public_key(
+    key_data: str,
+    format: str,
+    curve: str = "NIST256p",
+    hashfunc: str = "sha256",
+) -> str:
+    """Import a public key from various formats"""
+    return import_public_key(key_data, format, curve, hashfunc)
+
+
 def export_private_key(
     private_key: str,
     curve: str = "NIST256p",
@@ -293,6 +364,16 @@ def export_private_key(
 
 
 @app.tool()
+def _export_private_key(
+    private_key: str,
+    curve: str = "NIST256p",
+    format: str = "pem",
+    pem_format: str = "ssleay",
+) -> str:
+    """Export a private key to various formats"""
+    return export_private_key(private_key, curve, format, pem_format)
+
+
 def export_public_key(
     public_key: str,
     curve: str = "NIST256p",
@@ -322,6 +403,16 @@ def export_public_key(
 
 
 @app.tool()
+def _export_public_key(
+    public_key: str,
+    curve: str = "NIST256p",
+    format: str = "pem",
+    point_encoding: str = "uncompressed",
+) -> str:
+    """Export a public key to various formats"""
+    return export_public_key(public_key, curve, format, point_encoding)
+
+
 def get_key_info(
     private_key: str | None = None,
     public_key: str | None = None,
@@ -359,6 +450,16 @@ def get_key_info(
 
 
 @app.tool()
+def _get_key_info(
+    private_key: str | None = None,
+    public_key: str | None = None,
+    curve: str = "NIST256p",
+    hashfunc: str = "sha256",
+) -> str:
+    """Get information about a key"""
+    return get_key_info(private_key, public_key, curve, hashfunc)
+
+
 def recover_public_key(
     signature: str,
     data: str,
@@ -384,178 +485,148 @@ def recover_public_key(
     return json.dumps(result)
 
 
-async def generate_key_async(
-    curve: str = "NIST256p",
-    hashfunc: str = "sha256",
-) -> list[TextContent]:
-    result = generate_key(curve=curve, hashfunc=hashfunc)
-    return [TextContent(type="text", text=result)]
-
-
-async def sign_data_async(
-    private_key: str,
-    data: str,
-    curve: str = "NIST256p",
-    hashfunc: str = "sha256",
-    sigencode: str = "string",
-    deterministic: bool = True,
-) -> list[TextContent]:
-    result = sign_data(
-        private_key=private_key,
-        data=data,
-        curve=curve,
-        hashfunc=hashfunc,
-        sigencode=sigencode,
-        deterministic=deterministic,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def sign_digest_async(
-    private_key: str,
-    digest: str,
-    curve: str = "NIST256p",
-    sigencode: str = "string",
-    deterministic: bool = True,
-) -> list[TextContent]:
-    result = sign_digest(
-        private_key=private_key,
-        digest=digest,
-        curve=curve,
-        sigencode=sigencode,
-        deterministic=deterministic,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def verify_signature_async(
-    public_key: str,
+@app.tool()
+def _recover_public_key(
     signature: str,
     data: str,
     curve: str = "NIST256p",
     hashfunc: str = "sha256",
-    sigdecode: str = "string",
-) -> list[TextContent]:
-    result = verify_signature(
-        public_key=public_key,
-        signature=signature,
-        data=data,
-        curve=curve,
-        hashfunc=hashfunc,
-        sigdecode=sigdecode,
-    )
-    return [TextContent(type="text", text=result)]
+) -> str:
+    """Recover public keys from a signature and signed data"""
+    return recover_public_key(signature, data, curve, hashfunc)
 
 
-async def verify_digest_signature_async(
-    public_key: str,
-    signature: str,
-    digest: str,
-    curve: str = "NIST256p",
-    sigdecode: str = "string",
-) -> list[TextContent]:
-    result = verify_digest_signature(
-        public_key=public_key,
-        signature=signature,
-        digest=digest,
-        curve=curve,
-        sigdecode=sigdecode,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def import_private_key_async(
-    key_data: str,
-    format: str,
-    curve: str = "NIST256p",
-    hashfunc: str = "sha256",
-) -> list[TextContent]:
-    result = import_private_key(
-        key_data=key_data,
-        format=format,
-        curve=curve,
-        hashfunc=hashfunc,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def import_public_key_async(
-    key_data: str,
-    format: str,
-    curve: str = "NIST256p",
-    hashfunc: str = "sha256",
-) -> list[TextContent]:
-    result = import_public_key(
-        key_data=key_data,
-        format=format,
-        curve=curve,
-        hashfunc=hashfunc,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def export_private_key_async(
-    private_key: str,
-    curve: str = "NIST256p",
-    format: str = "pem",
-    pem_format: str = "ssleay",
-) -> list[TextContent]:
-    result = export_private_key(
-        private_key=private_key,
-        curve=curve,
-        format=format,
-        pem_format=pem_format,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def export_public_key_async(
-    public_key: str,
-    curve: str = "NIST256p",
-    format: str = "pem",
-    point_encoding: str = "uncompressed",
-) -> list[TextContent]:
-    result = export_public_key(
-        public_key=public_key,
-        curve=curve,
-        format=format,
-        point_encoding=point_encoding,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def get_key_info_async(
-    private_key: str | None = None,
-    public_key: str | None = None,
-    curve: str = "NIST256p",
-    hashfunc: str = "sha256",
-) -> list[TextContent]:
-    result = get_key_info(
-        private_key=private_key,
-        public_key=public_key,
-        curve=curve,
-        hashfunc=hashfunc,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-async def recover_public_key_async(
-    signature: str,
-    data: str,
-    curve: str = "NIST256p",
-    hashfunc: str = "sha256",
-) -> list[TextContent]:
-    result = recover_public_key(
-        signature=signature,
-        data=data,
-        curve=curve,
-        hashfunc=hashfunc,
-    )
-    return [TextContent(type="text", text=result)]
-
-
-def main():
+def main() -> None:
     app.run()
+
+
+async def generate_key_wrapper(
+    arguments: dict[str, Any],
+) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _generate_key(
+        curve=arguments.get("curve", "NIST256p"),
+        hashfunc=arguments.get("hashfunc", "sha256"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def sign_data_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _sign_data(
+        private_key=arguments["private_key"],
+        data=arguments["data"],
+        curve=arguments.get("curve", "NIST256p"),
+        hashfunc=arguments.get("hashfunc", "sha256"),
+        sigencode=arguments.get("sigencode", "string"),
+        deterministic=arguments.get("deterministic", True),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def sign_digest_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _sign_digest(
+        private_key=arguments["private_key"],
+        digest=arguments["digest"],
+        curve=arguments.get("curve", "NIST256p"),
+        sigencode=arguments.get("sigencode", "string"),
+        deterministic=arguments.get("deterministic", True),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def verify_signature_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _verify_signature(
+        public_key=arguments["public_key"],
+        signature=arguments["signature"],
+        data=arguments["data"],
+        curve=arguments.get("curve", "NIST256p"),
+        hashfunc=arguments.get("hashfunc", "sha256"),
+        sigdecode=arguments.get("sigdecode", "string"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def verify_digest_signature_wrapper(
+    arguments: dict[str, Any],
+) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _verify_digest_signature(
+        public_key=arguments["public_key"],
+        signature=arguments["signature"],
+        digest=arguments["digest"],
+        curve=arguments.get("curve", "NIST256p"),
+        sigdecode=arguments.get("sigdecode", "string"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def import_private_key_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _import_private_key(
+        key_data=arguments["key_data"],
+        format=arguments["format"],
+        curve=arguments.get("curve", "NIST256p"),
+        hashfunc=arguments.get("hashfunc", "sha256"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def import_public_key_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _import_public_key(
+        key_data=arguments["key_data"],
+        format=arguments["format"],
+        curve=arguments.get("curve", "NIST256p"),
+        hashfunc=arguments.get("hashfunc", "sha256"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def export_private_key_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _export_private_key(
+        private_key=arguments["private_key"],
+        curve=arguments.get("curve", "NIST256p"),
+        format=arguments.get("format", "pem"),
+        pem_format=arguments.get("pem_format", "ssleay"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def export_public_key_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _export_public_key(
+        public_key=arguments["public_key"],
+        curve=arguments.get("curve", "NIST256p"),
+        format=arguments.get("format", "pem"),
+        point_encoding=arguments.get("point_encoding", "uncompressed"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def get_key_info_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _get_key_info(
+        private_key=arguments.get("private_key"),
+        public_key=arguments.get("public_key"),
+        curve=arguments.get("curve", "NIST256p"),
+        hashfunc=arguments.get("hashfunc", "sha256"),
+    )
+    return [TextContent(type="text", text=result)]
+
+
+async def recover_public_key_wrapper(arguments: dict[str, Any]) -> list[TextContent]:
+    """Backward-compatible async wrapper for tests."""
+    result = _recover_public_key(
+        signature=arguments["signature"],
+        data=arguments["data"],
+        curve=arguments.get("curve", "NIST256p"),
+        hashfunc=arguments.get("hashfunc", "sha256"),
+    )
+    return [TextContent(type="text", text=result)]
 
 
 if __name__ == "__main__":
