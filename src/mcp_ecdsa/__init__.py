@@ -1,6 +1,6 @@
 """MCP ECDSA Server - ECDSA cryptography tools for Model Context Protocol."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "app",
